@@ -330,12 +330,18 @@ def new_objc_provider(
     # migrated over, we need to collect libraries from `CcInfo` (which will
     # include Swift and C++) and put them into the new `Objc` provider.
     transitive_cc_libs = []
+    force_loaded_libraries = []
     for cc_info in get_providers(deps, CcInfo):
         static_libs = collect_cc_libraries(
             cc_info = cc_info,
             include_static = True,
         )
         transitive_cc_libs.append(depset(static_libs, order = "topological"))
+        force_loaded_libraries.extend([
+            archive
+            for archive in static_libs
+            if archive.basename.endswith(".lo")
+        ])
     objc_provider_args["library"] = depset(
         static_archives,
         transitive = transitive_cc_libs,
@@ -351,11 +357,12 @@ def new_objc_provider(
     if linkopts:
         objc_provider_args["linkopt"] = depset(direct = linkopts)
 
-    force_loaded_libraries = [
+    force_loaded_libraries.extend([
         archive
         for archive in static_archives
         if archive.basename.endswith(".lo")
-    ]
+    ])
+
     if force_loaded_libraries:
         objc_provider_args["force_load_library"] = depset(
             direct = force_loaded_libraries,
